@@ -36,6 +36,32 @@ try {
     exit;
 }
 
+// Stop reusing an expired QRIS. User must buy a new voucher package.
+$remaining_seconds = 300;
+if (!empty($billing['qr_created_at'])) {
+    try {
+        $created = new DateTime($billing['qr_created_at']);
+        $now = new DateTime();
+        $diff = $now->getTimestamp() - $created->getTimestamp();
+        $remaining_seconds = max(0, 300 - $diff);
+
+        if ($diff >= 300) {
+            $expireStmt = $pdo->prepare("UPDATE billings SET status = 'expired' WHERE id = ? AND user_id = ? AND status = 'waiting'");
+            $expireStmt->execute([$billing_id, $user_id]);
+            file_put_contents(__DIR__ . '/get_billing_qr.log', date('c') . " Billing #$billing_id expired after {$diff}s" . PHP_EOL, FILE_APPEND);
+            echo json_encode([
+                'success' => false,
+                'status' => 'expired',
+                'message' => 'QRIS sudah kadaluarsa. Silakan pilih paket voucher lagi untuk membuat QRIS baru.'
+            ]);
+            exit;
+        }
+
+        file_put_contents(__DIR__ . '/get_billing_qr.log', date('c') . " QR created at: " . $billing['qr_created_at'] . ", elapsed: {$diff}s, remaining: {$remaining_seconds}s" . PHP_EOL, FILE_APPEND);
+    } catch (Exception $e) {
+        file_put_contents(__DIR__ . '/get_billing_qr.log', date('c') . " Error calculating remaining time: " . $e->getMessage() . PHP_EOL, FILE_APPEND);
+    }
+}
 // Check if we have midtrans response stored
 if (empty($billing['midtrans_response'])) {
     file_put_contents(__DIR__ . '/get_billing_qr.log', date('c') . " No midtrans_response stored for billing #$billing_id" . PHP_EOL, FILE_APPEND);
@@ -133,3 +159,4 @@ echo json_encode([
 ]);
 
 exit;
+

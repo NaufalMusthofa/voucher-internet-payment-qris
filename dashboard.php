@@ -5,6 +5,30 @@ include 'db.php';
 
 $user_id = $_SESSION['user']['id'];
 
+$expiryCutoff = date('Y-m-d H:i:s', time() - 300);
+
+// Guard: avoid fatal error if billings.status doesn't allow value 'expired' (e.g., ENUM without 'expired')
+try {
+    $checkStmt = $pdo->prepare("SELECT COLUMN_TYPE
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'billings'
+          AND COLUMN_NAME = 'status'");
+    $checkStmt->execute();
+    $col = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+    $colType = $col['COLUMN_TYPE'] ?? '';
+    $allowsExpired = (stripos($colType, "'expired'") !== false) || (stripos($colType, 'varchar') !== false) || (stripos($colType, 'text') !== false);
+
+    if ($allowsExpired) {
+        $expireStmt = $pdo->prepare("UPDATE billings SET status = 'expired' WHERE user_id = ? AND status = 'waiting' AND qr_created_at IS NOT NULL AND qr_created_at <= ?");
+        $expireStmt->execute([$user_id, $expiryCutoff]);
+    }
+} catch (Exception $e) {
+    // If schema inspection fails, don't break dashboard rendering
+}
+
+
 $stmt = $pdo->prepare("SELECT * FROM billings WHERE user_id = ? ORDER BY created_at DESC");
 $stmt->execute([$user_id]);
 $billings = $stmt->fetchAll();
@@ -1155,7 +1179,10 @@ $pakets = [
          body: JSON.stringify({ billing_id: billingId })
       }).then(r => r.json()).then(data => {
          if (!data.success) {
-            alert('Gagal menampilkan QRIS: ' + (data.message || 'unknown'));
+            alert(data.message || 'Gagal menampilkan QRIS.');
+            if (data.status === 'expired') {
+               location.reload();
+            }
             return;
          }
          
@@ -1241,5 +1268,4 @@ $pakets = [
 </body>
 
 </html>
-
 
