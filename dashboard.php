@@ -519,20 +519,25 @@ $pakets = [
          display: none;
          position: fixed;
          z-index: 1000;
-         left: 0;
-         top: 0;
+         inset: 0;
          width: 100%;
-         height: 100%;
-         background-color: rgba(0, 0, 0, 0.5);
+         min-height: 100%;
+         padding: 20px;
+         background-color: rgba(0, 0, 0, 0.55);
+         align-items: center;
+         justify-content: center;
+         overflow-y: auto;
       }
 
       .modal-content {
          background-color: white;
-         margin: 15% auto;
+         margin: auto;
          padding: 30px;
          border-radius: 15px;
-         width: 90%;
-         max-width: 500px;
+         width: min(92vw, 500px);
+         max-height: calc(100vh - 40px);
+         overflow-y: auto;
+         position: relative;
          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
          animation: modalSlideIn 0.3s ease;
       }
@@ -586,6 +591,65 @@ $pakets = [
          display: flex;
          gap: 12px;
          justify-content: flex-end;
+      }
+      #qrisModal .modal-content {
+         width: min(94vw, 560px);
+         padding: 28px;
+      }
+
+      #qrisModal .modal-header {
+         justify-content: center;
+         text-align: center;
+         margin-bottom: 18px;
+      }
+
+      #qrisModal .modal-body {
+         display: flex;
+         flex-direction: column;
+         align-items: center;
+         gap: 12px;
+         margin-bottom: 20px;
+         text-align: center;
+      }
+
+      #qrisInfo {
+         width: 100%;
+         margin: 0;
+         color: #333;
+         font-weight: 700;
+         overflow-wrap: anywhere;
+      }
+
+      #qrisImage {
+         display: block;
+         width: min(100%, 340px, 52vh);
+         max-width: 100%;
+         height: auto;
+         aspect-ratio: 1 / 1;
+         object-fit: contain;
+         margin: 0 auto;
+         border-radius: 8px;
+      }
+
+      #qrisCountdown {
+         margin-top: 0;
+         font-weight: 700;
+         color: #e67e22;
+      }
+
+      #qrisNote {
+         margin: 0;
+         color: #666;
+         font-size: 13px;
+      }
+
+      #qrisModal .modal-actions {
+         justify-content: center;
+      }
+
+      #qrisModal .modal-actions .btn {
+         min-width: 120px;
+         justify-content: center;
       }
 
       .close {
@@ -733,11 +797,11 @@ $pakets = [
                <div class="modal-icon">🔳</div>
                <div class="modal-title">Pembayaran QRIS</div>
             </div>
-            <div class="modal-body" style="text-align:center;">
-               <p id="qrisInfo" style="margin-bottom:10px;color:#333;font-weight:600;"></p>
-               <img id="qrisImage" src="" alt="QRIS" style="max-width:320px;width:80%;height:auto;margin:0 auto;display:block;border-radius:8px;" />
-               <div id="qrisCountdown" style="margin-top:12px;font-weight:700;color:#e67e22;"></div>
-               <p id="qrisNote" style="margin-top:10px;color:#666;font-size:13px;">QR akan kadaluarsa dalam 5 menit. Jangan tutup halaman ini sampai selesai.</p>
+            <div class="modal-body">
+               <p id="qrisInfo"></p>
+               <img id="qrisImage" src="" alt="QRIS" />
+               <div id="qrisCountdown"></div>
+               <p id="qrisNote">QR akan kadaluarsa dalam 5 menit. Jangan tutup halaman ini sampai selesai.</p>
             </div>
             <div class="modal-actions">
                <button onclick="closeQrisModal()" class="btn" style="background:#6c757d;color:white;">Tutup</button>
@@ -924,7 +988,7 @@ $pakets = [
    function showCancelModal(billingId, billingCode) {
       document.getElementById('cancelBillingId').value = billingId;
       document.getElementById('cancelBillingCode').textContent = billingCode;
-      document.getElementById('cancelModal').style.display = 'block';
+      document.getElementById('cancelModal').style.display = 'flex';
    }
 
    function closeCancelModal() {
@@ -1005,7 +1069,7 @@ $pakets = [
                   pre.id = 'qrisRaw';
                   pre.style.wordBreak = 'break-all';
                   pre.style.fontSize = '12px';
-                  pre.style.maxHeight = '200px';
+                  pre.style.maxHeight = '180px';
                   pre.style.overflow = 'auto';
                   pre.style.border = '1px solid #ddd';
                   pre.style.padding = '10px';
@@ -1051,7 +1115,7 @@ $pakets = [
       }
 
       function showQrisModal() {
-         document.getElementById('qrisModal').style.display = 'block';
+         document.getElementById('qrisModal').style.display = 'flex';
       }
 
       function closeQrisModal() {
@@ -1124,7 +1188,7 @@ $pakets = [
                pre.id = 'qrisRaw';
                pre.style.wordBreak = 'break-all';
                pre.style.fontSize = '12px';
-               pre.style.maxHeight = '200px';
+               pre.style.maxHeight = '180px';
                pre.style.overflow = 'auto';
                pre.style.border = '1px solid #ddd';
                pre.style.padding = '10px';
@@ -1177,3 +1241,5 @@ $pakets = [
 </body>
 
 </html>
+
+

@@ -29,3 +29,27 @@
 2026-06-13T15:16:00+02:00 FINAL: qr_string=NO qr_url=YES
 2026-06-13T15:16:00+02:00 Returned response successfully
 2026-06-13T15:16:00+02:00 QR created at: 2026-06-13 15:04:33, elapsed: 687s, remaining: 0s
+2026-06-13T15:27:01+00:00 Found billing #44
+2026-06-13T15:27:01+00:00 Found midtrans_response for billing #44, parsing...
+2026-06-13T15:27:01+00:00 Response parsed successfully
+2026-06-13T15:27:01+00:00 QR payload found: YES
+2026-06-13T15:27:01+00:00 QR is URL format
+2026-06-13T15:27:01+00:00 FINAL: qr_string=NO qr_url=YES
+2026-06-13T15:27:01+00:00 Returned response successfully
+2026-06-13T15:27:01+00:00 QR created at: 2026-06-13 15:26:02, elapsed: 59s, remaining: 241s
+2026-06-13T15:30:22+00:00 Found billing #44
+2026-06-13T15:30:22+00:00 Found midtrans_response for billing #44, parsing...
+2026-06-13T15:30:22+00:00 Response parsed successfully
+2026-06-13T15:30:22+00:00 QR payload found: YES
+2026-06-13T15:30:22+00:00 QR is URL format
+2026-06-13T15:30:22+00:00 FINAL: qr_string=NO qr_url=YES
+2026-06-13T15:30:22+00:00 Returned response successfully
+2026-06-13T15:30:22+00:00 QR created at: 2026-06-13 15:26:02, elapsed: 260s, remaining: 40s
+2026-06-13T15:31:07+00:00 Found billing #44
+2026-06-13T15:31:07+00:00 Found midtrans_response for billing #44, parsing...
+2026-06-13T15:31:07+00:00 Response parsed successfully
+2026-06-13T15:31:07+00:00 QR payload found: YES
+2026-06-13T15:31:07+00:00 QR is URL format
+2026-06-13T15:31:07+00:00 FINAL: qr_string=NO qr_url=YES
+2026-06-13T15:31:07+00:00 Returned response successfully
+2026-06-13T15:31:07+00:00 QR created at: 2026-06-13 15:26:02, elapsed: 305s, remaining: 0s
