@@ -57,8 +57,15 @@ if (!empty($billing['qr_created_at'])) {
         $remaining_seconds = max(0, 300 - $diff);
 
         if ($diff >= 300) {
-            $expireStmt = $pdo->prepare("UPDATE billings SET status = 'expired' WHERE id = ? AND user_id = ? AND status = 'waiting'");
-            $expireStmt->execute([$billing_id, $user_id]);
+            // Try to mark as expired (avoid fatal PDOException if ENUM doesn't support 'expired')
+            try {
+                $expireStmt = $pdo->prepare("UPDATE billings SET status = 'expired' WHERE id = ? AND user_id = ? AND status = 'waiting'");
+                $expireStmt->execute([$billing_id, $user_id]);
+            } catch (Exception $e) {
+                // ignore DB update failure; still return expired to block QR reuse
+                file_put_contents(__DIR__ . '/get_billing_qr.log', date('c') . " Failed to update status expired for billing #$billing_id: " . $e->getMessage() . PHP_EOL, FILE_APPEND);
+            }
+
             file_put_contents(__DIR__ . '/get_billing_qr.log', date('c') . " Billing #$billing_id expired after {$diff}s" . PHP_EOL, FILE_APPEND);
             echo json_encode([
                 'success' => false,
@@ -73,6 +80,7 @@ if (!empty($billing['qr_created_at'])) {
         file_put_contents(__DIR__ . '/get_billing_qr.log', date('c') . " Error calculating remaining time: " . $e->getMessage() . PHP_EOL, FILE_APPEND);
     }
 }
+
 // Check if we have midtrans response stored
 if (empty($billing['midtrans_response'])) {
     file_put_contents(__DIR__ . '/get_billing_qr.log', date('c') . " No midtrans_response stored for billing #$billing_id" . PHP_EOL, FILE_APPEND);
