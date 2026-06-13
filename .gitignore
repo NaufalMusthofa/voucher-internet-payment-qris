@@ -1,0 +1,12 @@
+*.log
+*_log.txt
+
+.env
+.env.*
+!.env.example
+
+composer.phar
+node_modules/
+
+Thumbs.db
+.DS_Store
