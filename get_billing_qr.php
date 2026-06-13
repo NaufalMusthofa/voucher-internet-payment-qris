@@ -20,14 +20,25 @@ $billing_id = (int)$input['billing_id'];
 
 // Get billing data with midtrans response from DB
 try {
-    $stmt = $pdo->prepare("SELECT id, billing_code, amount, status, midtrans_response, qr_created_at FROM billings WHERE id = ? AND user_id = ? AND status = 'waiting'");
+$stmt = $pdo->prepare("SELECT id, billing_code, amount, status, midtrans_response, qr_created_at FROM billings WHERE id = ? AND user_id = ?");
     $stmt->execute([$billing_id, $user_id]);
     $billing = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$billing) {
-        echo json_encode(['success' => false, 'message' => 'Billing not found or not waiting']);
+        echo json_encode(['success' => false, 'message' => 'Billing not found']);
         exit;
     }
+
+    // If not waiting, block QR reuse and return status to client
+    if ($billing['status'] !== 'waiting') {
+        echo json_encode([
+            'success' => false,
+            'status' => $billing['status'],
+            'message' => 'Billing status is ' . $billing['status'] . '. Silakan buat tagihan baru.'
+        ]);
+        exit;
+    }
+
     
     file_put_contents(__DIR__ . '/get_billing_qr.log', date('c') . " Found billing #$billing_id" . PHP_EOL, FILE_APPEND);
 } catch (Exception $e) {

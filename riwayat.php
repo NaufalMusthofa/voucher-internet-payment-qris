@@ -4,7 +4,7 @@ session_start();
 
 $user_id = $_SESSION['user']['id'];
 
-$stmt = $pdo->prepare("SELECT * FROM billings WHERE user_id = ? AND status = 'paid' ORDER BY created_at DESC");
+$stmt = $pdo->prepare("SELECT * FROM billings WHERE user_id = ? AND status IN ('paid','expired','cancel','waiting') ORDER BY created_at DESC");
 $stmt->execute([$user_id]);
 $data = $stmt->fetchAll();
 ?>
@@ -269,7 +269,7 @@ $data = $stmt->fetchAll();
                   </tr>
                </thead>
                <tbody>
-                  <?php foreach ($data as $d): ?>
+<?php foreach ($data as $d): ?>
                   <tr>
                      <td>
                         <span class="billing-code"><?= htmlspecialchars($d['billing_code']) ?></span>
@@ -278,7 +278,16 @@ $data = $stmt->fetchAll();
                         <span class="amount">Rp <?= number_format($d['amount'], 0, ',', '.') ?></span>
                      </td>
                      <td>
-                        <span class="status"><?= ucfirst($d['status']) ?></span>
+                        <?php
+                           $status = $d['status'];
+                           if ($status === 'expired') {
+                              echo '<span class="status" style="background: rgba(220, 53, 69, 0.12); color: #721c24;">VOID (Kadaluarsa / Otomatis dibatalkan)</span>';
+                           } elseif ($status === 'cancel') {
+                              echo '<span class="status" style="background: rgba(220, 53, 69, 0.12); color: #721c24;">Dibatalkan</span>';
+                           } else {
+                              echo '<span class="status">' . ucfirst($status) . '</span>';
+                           }
+                        ?>
                      </td>
                      <td>
                         <?= date('d/m/Y H:i', strtotime($d['created_at'])) ?>
