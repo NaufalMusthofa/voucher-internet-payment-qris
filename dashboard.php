@@ -7,7 +7,9 @@ $user_id = $_SESSION['user']['id'];
 
 $expiryCutoff = date('Y-m-d H:i:s', time() - 300);
 
-// Guard: avoid fatal error if billings.status doesn't allow value 'expired' (e.g., ENUM without 'expired')
+$expiredStatus = 'cancel';
+
+// Auto-void stale QRIS orders before rendering dashboard and statistics.
 try {
     $checkStmt = $pdo->prepare("SELECT COLUMN_TYPE
         FROM INFORMATION_SCHEMA.COLUMNS
@@ -19,13 +21,18 @@ try {
 
     $colType = $col['COLUMN_TYPE'] ?? '';
     $allowsExpired = (stripos($colType, "'expired'") !== false) || (stripos($colType, 'varchar') !== false) || (stripos($colType, 'text') !== false);
+    $expiredStatus = $allowsExpired ? 'expired' : 'cancel';
 
-    if ($allowsExpired) {
-        $expireStmt = $pdo->prepare("UPDATE billings SET status = 'expired' WHERE user_id = ? AND status = 'waiting' AND qr_created_at IS NOT NULL AND qr_created_at <= ?");
-        $expireStmt->execute([$user_id, $expiryCutoff]);
-    }
+    $expireStmt = $pdo->prepare("UPDATE billings SET status = ? WHERE user_id = ? AND status = 'waiting' AND qr_created_at IS NOT NULL AND qr_created_at <= ?");
+    $expireStmt->execute([$expiredStatus, $user_id, $expiryCutoff]);
 } catch (Exception $e) {
-    // If schema inspection fails, don't break dashboard rendering
+    // If schema inspection fails, still keep expired QRIS out of the waiting bucket.
+    try {
+        $expireStmt = $pdo->prepare("UPDATE billings SET status = 'cancel' WHERE user_id = ? AND status = 'waiting' AND qr_created_at IS NOT NULL AND qr_created_at <= ?");
+        $expireStmt->execute([$user_id, $expiryCutoff]);
+    } catch (Exception $ignored) {
+        // Don't break dashboard rendering.
+    }
 }
 
 
@@ -41,7 +48,7 @@ $statsStmt = $pdo->prepare("
         SUM(CASE WHEN status = 'waiting' THEN amount ELSE 0 END) as total_pending,
         COUNT(CASE WHEN status = 'paid' THEN 1 END) as paid_count,
         COUNT(CASE WHEN status = 'waiting' THEN 1 END) as pending_count,
-        COUNT(CASE WHEN status = 'cancel' THEN 1 END) as cancelled_count
+        COUNT(CASE WHEN status IN ('cancel', 'expired') THEN 1 END) as cancelled_count
     FROM billings WHERE user_id = ?
 ");
 $statsStmt->execute([$user_id]);

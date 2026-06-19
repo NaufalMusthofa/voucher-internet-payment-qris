@@ -34,8 +34,8 @@ if ($notification) {
         } elseif ($transaction_status == 'pending') {
             $status = 'waiting';
         } elseif ($transaction_status == 'expire') {
-            // distinguish expired from explicit cancel
-            $status = 'expired';
+            // Treat expired payment as void/cancelled in billing statistics.
+            $status = 'cancel';
         } elseif (in_array($transaction_status, ['deny', 'cancel'])) {
             $status = 'cancel';
         }

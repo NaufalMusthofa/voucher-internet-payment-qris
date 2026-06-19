@@ -57,13 +57,14 @@ if (!empty($billing['qr_created_at'])) {
         $remaining_seconds = max(0, 300 - $diff);
 
         if ($diff >= 300) {
-            // Try to mark as expired (avoid fatal PDOException if ENUM doesn't support 'expired')
+            // Mark stale QRIS as void/cancelled so it no longer counts as waiting.
             try {
                 $expireStmt = $pdo->prepare("UPDATE billings SET status = 'expired' WHERE id = ? AND user_id = ? AND status = 'waiting'");
                 $expireStmt->execute([$billing_id, $user_id]);
             } catch (Exception $e) {
-                // ignore DB update failure; still return expired to block QR reuse
-                file_put_contents(__DIR__ . '/get_billing_qr.log', date('c') . " Failed to update status expired for billing #$billing_id: " . $e->getMessage() . PHP_EOL, FILE_APPEND);
+                $cancelStmt = $pdo->prepare("UPDATE billings SET status = 'cancel' WHERE id = ? AND user_id = ? AND status = 'waiting'");
+                $cancelStmt->execute([$billing_id, $user_id]);
+                file_put_contents(__DIR__ . '/get_billing_qr.log', date('c') . " Marked billing #$billing_id as cancel because expired is unsupported: " . $e->getMessage() . PHP_EOL, FILE_APPEND);
             }
 
             file_put_contents(__DIR__ . '/get_billing_qr.log', date('c') . " Billing #$billing_id expired after {$diff}s" . PHP_EOL, FILE_APPEND);
