@@ -1,12 +1,9 @@
 <?php
-session_start();
 include 'db.php';
+require_once 'auth_bypass.php';
 header('Content-Type: application/json');
 
-if (!isset($_SESSION['user'])) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-    exit;
-}
+ensureDashboardSession($pdo);
 
 $user_id = $_SESSION['user']['id'];
 $input = json_decode(file_get_contents('php://input'), true);
@@ -103,6 +100,20 @@ try {
 } catch (Exception $e) {
     file_put_contents(__DIR__ . '/get_billing_qr.log', date('c') . " Parse error: " . $e->getMessage() . PHP_EOL, FILE_APPEND);
     echo json_encode(['success' => false, 'message' => 'Failed to parse stored response']);
+    exit;
+}
+
+if (!empty($chargeArr['snap_token'])) {
+    file_put_contents(__DIR__ . '/get_billing_qr.log', date('c') . " Snap token found for billing #$billing_id" . PHP_EOL, FILE_APPEND);
+    echo json_encode([
+        'success' => true,
+        'billing_id' => $billing_id,
+        'billing_code' => $billing['billing_code'],
+        'amount' => (int)$billing['amount'],
+        'payment_gateway' => 'snap',
+        'snap_token' => $chargeArr['snap_token'],
+        'remaining_seconds' => (int)$remaining_seconds
+    ]);
     exit;
 }
 

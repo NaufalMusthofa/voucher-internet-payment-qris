@@ -1,14 +1,11 @@
 <?php
-session_start();
 require_once 'vendor/autoload.php';
 include 'db.php';
+require_once 'auth_bypass.php';
 include 'config/midtrans.php';
 header('Content-Type: application/json');
 
-if (!isset($_SESSION['user'])) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-    exit;
-}
+ensureDashboardSession($pdo);
 
 $user_id = $_SESSION['user']['id'];
 $name = $_SESSION['user']['name'];
@@ -36,9 +33,11 @@ try {
 }
 
 // Midtrans config sudah di-load dari config/midtrans.php
-// (serverKey, isProduction, isSanitized, is3ds)
+// (serverKey, clientKey, isProduction, isSanitized, is3ds)
 
-// Prepare transaction data with 5 minutes expiry
+// Prepare Snap transaction data with 5 minutes expiry.
+// enabled_payments sengaja tidak dibatasi agar Midtrans menampilkan semua metode
+// yang aktif di akun merchant: QRIS, bank transfer/VA, e-wallet, retail store, dll.
 $expiry = [
     'start_time' => date('Y-m-d H:i:s O'),
     'unit' => 'minute',
@@ -46,7 +45,6 @@ $expiry = [
 ];
 
 $params = [
-    'payment_type' => 'qris',
     'transaction_details' => [
         'order_id' => $billing_code,
         'gross_amount' => $amount
@@ -55,6 +53,14 @@ $params = [
         'first_name' => $name,
         'email' => $email
     ],
+    'item_details' => [
+        [
+            'id' => $billing_code,
+            'price' => $amount,
+            'quantity' => 1,
+            'name' => $packageName
+        ]
+    ],
     'expiry' => $expiry
 ];
 
@@ -62,10 +68,10 @@ try {
     // Retry mechanism for transient errors (e.g., HTTP 502 from payment partner)
     $maxRetries = 3;
     $attempt = 0;
-    $charge = null;
+    $snapToken = null;
     while ($attempt < $maxRetries) {
         try {
-            $charge = \Midtrans\CoreApi::charge($params);
+            $snapToken = \Midtrans\Snap::getSnapToken($params);
             break;
         } catch (Exception $e) {
             $attempt++;
@@ -88,7 +94,12 @@ try {
 
 // Save midtrans response to billing
 try {
-    $responseJson = json_encode($charge);
+    $responsePayload = [
+        'payment_gateway' => 'snap',
+        'snap_token' => $snapToken,
+        'params' => $params
+    ];
+    $responseJson = json_encode($responsePayload);
     $now = date('Y-m-d H:i:s');
     $upd = $pdo->prepare("UPDATE billings SET midtrans_response = ?, qr_created_at = ? WHERE id = ?");
     $upd->execute([$responseJson, $now, $billing_id]);
@@ -97,57 +108,16 @@ try {
     file_put_contents(__DIR__ . '/create_qris_order.log', date('c') . " Failed to save response: " . $e->getMessage() . PHP_EOL, FILE_APPEND);
 }
 
-// Try to locate qr_string or action url
-
-$qr_payload = null;
-$qr_url = null;
-
-// normalize charge to array for flexible searching
-$chargeArr = json_decode(json_encode($charge), true);
-
-// log the full charge response for debugging
-file_put_contents(__DIR__ . '/create_qris_order.log', date('c') . " SUCCESS RESPONSE: " . json_encode($chargeArr) . PHP_EOL, FILE_APPEND);
-
-// helper: recursive search for keys containing 'qr' or 'qr_string'
-function find_qr_recursive($arr) {
-    if (!is_array($arr)) return null;
-    foreach ($arr as $k => $v) {
-        $lk = strtolower($k);
-        if ($lk === 'qr_string' || strpos($lk, 'qr_string') !== false) return $v;
-        if ($lk === 'qr' || strpos($lk, 'qr') === 0 && is_string($v)) return $v;
-        if ($lk === 'url' && is_string($v) && (strpos($v, 'http') === 0 || strpos($v, 'data:image') === 0)) return $v;
-        if (is_array($v)) {
-            $found = find_qr_recursive($v);
-            if ($found) return $found;
-        }
-    }
-    return null;
-}
-
-$qr_payload = find_qr_recursive($chargeArr);
-
-// if payload looks like a URL, set as qr_url instead
-if ($qr_payload && is_string($qr_payload) && (strpos($qr_payload, 'http') === 0 || strpos($qr_payload, 'data:image') === 0)) {
-    $qr_url = $qr_payload;
-    $qr_payload = null;
-}
-
-// fallback: check actions array for url
-if (empty($qr_url) && isset($chargeArr['actions']) && is_array($chargeArr['actions'])) {
-    foreach ($chargeArr['actions'] as $a) {
-        if (!empty($a['url'])) { $qr_url = $a['url']; break; }
-    }
-}
+file_put_contents(__DIR__ . '/create_qris_order.log', date('c') . " SUCCESS SNAP TOKEN for billing_id=$billing_id" . PHP_EOL, FILE_APPEND);
 
 echo json_encode([
     'success' => true,
     'billing_id' => $billing_id,
     'billing_code' => $billing_code,
     'amount' => $amount,
-    'qr_string' => $qr_payload,
-    'qr_url' => $qr_url,
-    'remaining_seconds' => 300, // 5 minutes for newly created QRIS
-    'raw' => $chargeArr
+    'payment_gateway' => 'snap',
+    'snap_token' => $snapToken,
+    'remaining_seconds' => 300
 ]);
 
 exit;

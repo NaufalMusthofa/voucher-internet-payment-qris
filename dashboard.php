@@ -1,13 +1,21 @@
 <?php
-session_start();
-if (!isset($_SESSION['user'])) header("Location: login.php");
 include 'db.php';
+require_once 'auth_bypass.php';
+require_once 'config/midtrans.php';
+require_once 'sync_midtrans_status.php';
+
+ensureDashboardSession($pdo);
 
 $user_id = $_SESSION['user']['id'];
+$snapJsUrl = \Midtrans\Config::$isProduction
+    ? 'https://app.midtrans.com/snap/snap.js'
+    : 'https://app.sandbox.midtrans.com/snap/snap.js';
 
 $expiryCutoff = date('Y-m-d H:i:s', time() - 300);
 
 $expiredStatus = 'cancel';
+
+syncMidtransWaitingBillings($pdo, $user_id);
 
 // Auto-void stale QRIS orders before rendering dashboard and statistics.
 try {
@@ -93,6 +101,7 @@ $pakets = [
    <meta charset="UTF-8">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <title>Dashboard - WiFi Voucher Internet Billing</title>
+   <script src="<?= htmlspecialchars($snapJsUrl) ?>" data-client-key="<?= htmlspecialchars(\Midtrans\Config::$clientKey) ?>"></script>
    <style>
       /* --- RESET & BASE STYLES --- */
       * {
@@ -768,7 +777,7 @@ $pakets = [
 </head>
 
 <body>
-   <a href="logout.php" class="logout-btn">
+   <a href="logout.php" class="logout-btn" style="display:none;">
       🚪 Logout
    </a>
 
@@ -820,7 +829,7 @@ $pakets = [
          </div>
       </div>
 
-      <!-- QRIS Modal -->
+      <!-- QRIS Modal (fallback untuk transaksi lama) -->
       <div id="qrisModal" class="modal">
          <div class="modal-content">
             <span class="close" id="qrisClose">&times;</span>
@@ -968,7 +977,7 @@ $pakets = [
 
                            <?php else: ?>
                            <button type="button" class="btn btn-primary" onclick="payExistingBilling(<?= $b['id'] ?>, <?= $b['amount'] ?>)">
-                              💳 Bayar QRIS
+                              💳 Bayar
                            </button>
                            <button
                               onclick="showCancelModal(<?= $b['id'] ?>, '<?= htmlspecialchars($b['billing_code']) ?>')"
@@ -1070,8 +1079,39 @@ $pakets = [
       });
    });
 
-      // Buy package -> create QRIS order
+      // Buy package -> create Midtrans Snap order
       let qrisTimerInterval = null;
+      let snapPaymentOpen = false;
+
+      function openSnapPayment(snapToken) {
+         if (!window.snap || !snapToken) {
+            alert('Gateway pembayaran belum siap. Silakan refresh halaman.');
+            return;
+         }
+
+         snapPaymentOpen = true;
+         snap.pay(snapToken, {
+            onSuccess: function() {
+               snapPaymentOpen = false;
+               alert('Pembayaran berhasil.');
+               location.reload();
+            },
+            onPending: function() {
+               snapPaymentOpen = false;
+               alert('Pembayaran masih pending. Silakan selesaikan instruksi pembayaran.');
+               location.reload();
+            },
+            onError: function() {
+               snapPaymentOpen = false;
+               alert('Terjadi kesalahan pembayaran. Silakan coba lagi.');
+            },
+            onClose: function() {
+               snapPaymentOpen = false;
+               // User menutup popup Snap, billing tetap waiting dan bisa dibayar lagi dari riwayat.
+            }
+         });
+      }
+
       function buyPackage(amount, name) {
          if (!confirm('Beli "' + name + '" seharga Rp ' + new Intl.NumberFormat('id-ID').format(amount) + '?')) return;
          fetch('create_qris_order.php', {
@@ -1083,6 +1123,11 @@ $pakets = [
             if (!data.success) {
                alert('Gagal membuat order: ' + (data.message || 'unknown'));
                console.error('Create order error:', data);
+               return;
+            }
+
+            if (data.snap_token) {
+               openSnapPayment(data.snap_token);
                return;
             }
             
@@ -1195,7 +1240,7 @@ $pakets = [
          qrisTimerInterval = setInterval(update, 1000);
       }
 
-   // Pay existing billing -> show QRIS (dari DB, tidak buat baru)
+   // Pay existing billing -> open saved Midtrans payment (Snap for new orders, QRIS fallback for old ones)
 function payExistingBilling(billingId, amount) {
       if (!confirm('Bayar Rp ' + new Intl.NumberFormat('id-ID').format(amount) + '?')) return;
       
@@ -1206,10 +1251,15 @@ function payExistingBilling(billingId, amount) {
          body: JSON.stringify({ billing_id: billingId })
       }).then(r => r.json()).then(data => {
          if (!data.success) {
-            alert(data.message || 'Gagal menampilkan QRIS.');
+            alert(data.message || 'Gagal menampilkan pembayaran.');
             if (data.status === 'expired') {
                location.reload();
             }
+            return;
+         }
+
+         if (data.snap_token) {
+            openSnapPayment(data.snap_token);
             return;
          }
          
@@ -1284,10 +1334,10 @@ function payExistingBilling(billingId, amount) {
    }
 
    // Auto refresh every 30 seconds (skip if modal open)
-   setInterval(() => {
-      const modal = document.getElementById('qrisModal');
-      // only reload if modal is not visible
-      if (!modal || modal.style.display === 'none') {
+      setInterval(() => {
+         const modal = document.getElementById('qrisModal');
+         // only reload if modal is not visible
+      if (!snapPaymentOpen && (!modal || modal.style.display === 'none')) {
          location.reload();
       }
    }, 30000);

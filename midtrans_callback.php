@@ -2,6 +2,7 @@
 require_once 'vendor/autoload.php';
 require_once 'db.php';
 require_once 'config/midtrans.php';
+require_once 'sync_midtrans_status.php';
 
 // Log semua callback yang masuk
 file_put_contents('callback_log.txt', date('Y-m-d H:i:s') . " - Callback received: " . file_get_contents('php://input') . PHP_EOL, FILE_APPEND);
@@ -19,26 +20,7 @@ if ($notification) {
         // Log tambahan untuk debug
         file_put_contents('callback_log.txt', date('Y-m-d H:i:s') . " - Order ID: {$order_id}, Status: {$transaction_status}" . PHP_EOL, FILE_APPEND);
 
-        $status = 'waiting'; // default
-
-        if ($transaction_status == 'capture') {
-            if ($payment_type == 'credit_card') {
-                if ($fraud_status == 'challenge') {
-                    $status = 'waiting';
-                } else {
-                    $status = 'paid';
-                }
-            }
-        } elseif ($transaction_status == 'settlement') {
-            $status = 'paid';
-        } elseif ($transaction_status == 'pending') {
-            $status = 'waiting';
-        } elseif ($transaction_status == 'expire') {
-            // Treat expired payment as void/cancelled in billing statistics.
-            $status = 'cancel';
-        } elseif (in_array($transaction_status, ['deny', 'cancel'])) {
-            $status = 'cancel';
-        }
+        $status = mapMidtransBillingStatus($transaction_status, $payment_type, $fraud_status);
 
         try {
             // Update status di database

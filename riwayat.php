@@ -1,8 +1,14 @@
 <?php
 include 'db.php';
-session_start();
+require_once 'auth_bypass.php';
+require_once 'config/midtrans.php';
+require_once 'sync_midtrans_status.php';
+
+ensureDashboardSession($pdo);
 
 $user_id = $_SESSION['user']['id'];
+
+syncMidtransWaitingBillings($pdo, $user_id);
 
 $stmt = $pdo->prepare("SELECT * FROM billings WHERE user_id = ? AND status IN ('paid','expired','cancel','waiting') ORDER BY created_at DESC");
 $stmt->execute([$user_id]);
@@ -284,6 +290,10 @@ $data = $stmt->fetchAll();
                               echo '<span class="status" style="background: rgba(220, 53, 69, 0.12); color: #721c24;">VOID (Kadaluarsa / Otomatis dibatalkan)</span>';
                            } elseif ($status === 'cancel') {
                               echo '<span class="status" style="background: rgba(220, 53, 69, 0.12); color: #721c24;">Dibatalkan</span>';
+                           } elseif ($status === 'paid') {
+                              echo '<span class="status" style="background: rgba(40, 167, 69, 0.14); color: #155724;">Lunas</span>';
+                           } elseif ($status === 'waiting') {
+                              echo '<span class="status" style="background: rgba(255, 193, 7, 0.18); color: #856404;">Menunggu</span>';
                            } else {
                               echo '<span class="status">' . ucfirst($status) . '</span>';
                            }

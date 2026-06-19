@@ -1,6 +1,10 @@
 <?php
-session_start();
 include 'db.php';
+require_once 'auth_bypass.php';
+
+ensureDashboardSession($pdo);
+header("Location: dashboard.php");
+exit;
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $email = $_POST['email'];
