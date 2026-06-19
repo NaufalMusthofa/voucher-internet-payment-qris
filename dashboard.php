@@ -789,6 +789,36 @@ $pakets = [
          <p class="user-welcome">Pilih paket internet sesuai kebutuhanmu. Koneksi cepat, stabil, dan tanpa rahasia!</p>
       </header>
 
+      <!-- Statistics Section -->
+      <div class="fade-in">
+         <h2 class="section-title">📊 Statistik Billing Anda</h2>
+         <div class="stats-grid">
+            <div class="stat-card">
+               <div class="stat-icon">📋</div>
+               <div class="stat-value"><?= $stats['total_billings'] ?: 0 ?></div>
+               <div class="stat-label">Total Tagihan</div>
+            </div>
+
+            <div class="stat-card">
+               <div class="stat-icon">✅</div>
+               <div class="stat-value">Rp <?= number_format($stats['total_paid'] ?: 0, 0, ',', '.') ?></div>
+               <div class="stat-label">Total Terbayar</div>
+            </div>
+
+            <div class="stat-card">
+               <div class="stat-icon">⏳</div>
+               <div class="stat-value">Rp <?= number_format($stats['total_pending'] ?: 0, 0, ',', '.') ?></div>
+               <div class="stat-label">Menunggu Pembayaran</div>
+            </div>
+
+            <div class="stat-card">
+               <div class="stat-icon">❌</div>
+               <div class="stat-value"><?= $stats['cancelled_count'] ?: 0 ?></div>
+               <div class="stat-label">Dibatalkan</div>
+            </div>
+         </div>
+      </div>
+
       <!-- Pricing Section -->
       <div class="pricing-section fade-in">
          <h2 class="section-title">💳 Paket Layanan Kami</h2>
@@ -849,35 +879,7 @@ $pakets = [
          </div>
       </div>
 
-      <!-- Statistics Section -->
-      <div class="fade-in">
-         <h2 class="section-title">📊 Statistik Billing Anda</h2>
-         <div class="stats-grid">
-            <div class="stat-card">
-               <div class="stat-icon">📋</div>
-               <div class="stat-value"><?= $stats['total_billings'] ?: 0 ?></div>
-               <div class="stat-label">Total Tagihan</div>
-            </div>
-
-            <div class="stat-card">
-               <div class="stat-icon">✅</div>
-               <div class="stat-value">Rp <?= number_format($stats['total_paid'] ?: 0, 0, ',', '.') ?></div>
-               <div class="stat-label">Total Terbayar</div>
-            </div>
-
-            <div class="stat-card">
-               <div class="stat-icon">⏳</div>
-               <div class="stat-value">Rp <?= number_format($stats['total_pending'] ?: 0, 0, ',', '.') ?></div>
-               <div class="stat-label">Menunggu Pembayaran</div>
-            </div>
-
-            <div class="stat-card">
-               <div class="stat-icon">❌</div>
-               <div class="stat-value"><?= $stats['cancelled_count'] ?: 0 ?></div>
-               <div class="stat-label">Dibatalkan</div>
-            </div>
-         </div>
-      </div>
+      
 
       <!-- Navigation Section -->
       <div class="navigation fade-in">
