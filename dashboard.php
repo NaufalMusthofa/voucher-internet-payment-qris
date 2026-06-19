@@ -1069,6 +1069,7 @@ $pakets = [
          if (!confirm('Beli "' + name + '" seharga Rp ' + new Intl.NumberFormat('id-ID').format(amount) + '?')) return;
          fetch('create_qris_order.php', {
             method: 'POST',
+            credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ amount: amount, name: name })
          }).then(r => r.json()).then(data => {
@@ -1193,6 +1194,7 @@ function payExistingBilling(billingId, amount) {
       
       fetch('get_billing_qr.php', {
          method: 'POST',
+         credentials: 'same-origin',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({ billing_id: billingId })
       }).then(r => r.json()).then(data => {

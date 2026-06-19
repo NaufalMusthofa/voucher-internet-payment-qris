@@ -1,6 +1,6 @@
 <?php
-include 'db.php';
 session_start();
+include 'db.php';
 header('Content-Type: application/json');
 
 if (!isset($_SESSION['user'])) {

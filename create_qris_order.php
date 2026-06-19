@@ -1,8 +1,8 @@
 <?php
+session_start();
 require_once 'vendor/autoload.php';
 include 'db.php';
 include 'config/midtrans.php';
-session_start();
 header('Content-Type: application/json');
 
 if (!isset($_SESSION['user'])) {
