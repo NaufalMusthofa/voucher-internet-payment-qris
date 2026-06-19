@@ -874,10 +874,10 @@ $pakets = [
       <div class="navigation fade-in">
          <div class="nav-title">🧭 Menu Navigasi</div>
          <div class="nav-grid">
-            <a href="create_billing.php" class="nav-item">
+            <!-- <a href="create_billing.php" class="nav-item">
                <span class="nav-icon">➕</span>
                Buat Tagihan
-            </a>
+            </a> -->
             <a href="user_management.php" class="nav-item">
                <span class="nav-icon">👥</span>
                Kelola User
