@@ -4,6 +4,7 @@ include 'db.php';
 require_once 'auth_helpers.php';
 
 ensureUserRoleSchema($pdo);
+ensureUserPhoneSchema($pdo);
 refreshSessionUser($pdo);
 requireAdmin();
 
@@ -324,7 +325,7 @@ body {
             <tr>
                <th>🆔 ID</th>
                <th>👤 Nama</th>
-               <th>📧 Email</th>
+               <th>📱 Nomor HP</th>
                <th>Role</th>
             </tr>
          </thead>
@@ -338,7 +339,7 @@ body {
                   <span class="user-name"><?= htmlspecialchars($u['name']) ?></span>
                </td>
                <td>
-                  <span class="user-email"><?= htmlspecialchars($u['email']) ?></span>
+                  <span class="user-email"><?= htmlspecialchars($u['phone'] ?? '-') ?></span>
                </td>
                <td>
                   <?php $role = $u['role'] ?? 'pelanggan'; ?>

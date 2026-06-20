@@ -14,6 +14,7 @@ if (!isset($_SESSION['user'])) {
 $user_id = $_SESSION['user']['id'];
 $name = $_SESSION['user']['name'];
 $email = isset($_SESSION['user']['email']) ? $_SESSION['user']['email'] : '';
+$phone = isset($_SESSION['user']['phone']) ? $_SESSION['user']['phone'] : '';
 
 $input = json_decode(file_get_contents('php://input'), true);
 if (!$input || !isset($input['amount']) || !isset($input['name'])) {
@@ -75,10 +76,11 @@ $params = [
         'order_id' => $billing_code,
         'gross_amount' => $amount
     ],
-    'customer_details' => [
+    'customer_details' => array_filter([
         'first_name' => $name,
-        'email' => $email
-    ],
+        'email' => $email,
+        'phone' => $phone
+    ]),
     'item_details' => [
         [
             'id' => $billing_code,

@@ -4,19 +4,23 @@ include 'db.php';
 require_once 'auth_helpers.php';
 
 ensureUserRoleSchema($pdo);
+ensureUserPhoneSchema($pdo);
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $email = $_POST['email'];
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch();
-
-    if ($user) {
-        $_SESSION['user'] = $user;
-        header("Location: dashboard.php");
-        exit;
+    $phone = normalizePhoneNumber($_POST['phone'] ?? '');
+    if (!isValidPhoneNumber($phone)) {
+        $error = "Masukkan nomor HP yang valid, contoh 6288289722215";
     } else {
-        $error = "User tidak ditemukan";
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE phone = ?");
+        $stmt->execute([$phone]);
+        $user = $stmt->fetch();
+
+        if ($user) {
+            $_SESSION['user'] = $user;
+            header("Location: dashboard.php");
+            exit;
+        }
+        $error = "Nomor HP tidak terdaftar";
     }
 }
 ?>
@@ -361,11 +365,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
       <form method="POST" id="loginForm">
          <div class="form-group">
-            <label class="form-label" for="email">Email Address</label>
+            <label class="form-label" for="phone">Nomor HP</label>
             <div class="input-group">
-               <input type="email" name="email" id="email" class="form-input" placeholder="Masukkan email Anda" required
-                  autocomplete="email">
-               <span class="input-icon">📧</span>
+               <input type="tel" name="phone" id="phone" class="form-input" placeholder="Contoh: 6288289722215" required
+                  inputmode="numeric" pattern="62[0-9]{8,13}" maxlength="15" autocomplete="tel">
+               <span class="input-icon">📱</span>
             </div>
          </div>
 
@@ -397,8 +401,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       loginBtn.disabled = true;
    });
 
-   // Auto focus on email input
-   document.getElementById('email').focus();
+   // Auto focus and allow digits only
+   const phoneInput = document.getElementById('phone');
+   phoneInput.focus();
+   phoneInput.addEventListener('input', function() {
+      this.value = this.value.replace(/\D/g, '').slice(0, 15);
+   });
 
    // Add enter key handler
    document.addEventListener('keypress', function(e) {

@@ -21,7 +21,7 @@ $billing_id = (int)$input['billing_id'];
 
 // Get billing data
 try {
-    $stmt = $pdo->prepare("SELECT b.*, u.name, u.email FROM billings b JOIN users u ON b.user_id = u.id WHERE b.id = ? AND b.user_id = ?");
+    $stmt = $pdo->prepare("SELECT b.*, u.name, u.email, u.phone FROM billings b JOIN users u ON b.user_id = u.id WHERE b.id = ? AND b.user_id = ?");
     $stmt->execute([$billing_id, $user_id]);
     $billing = $stmt->fetch();
     
@@ -80,10 +80,11 @@ if (!$charge) {
             'order_id' => $billing['billing_code'],
             'gross_amount' => (int)$billing['amount']
         ],
-        'customer_details' => [
+        'customer_details' => array_filter([
             'first_name' => $billing['name'],
-            'email' => $billing['email']
-        ],
+            'email' => $billing['email'],
+            'phone' => $billing['phone']
+        ]),
         'expiry' => $expiry
     ];
 

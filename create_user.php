@@ -4,6 +4,7 @@ include 'db.php';
 require_once 'auth_helpers.php';
 
 ensureUserRoleSchema($pdo);
+ensureUserPhoneSchema($pdo);
 if (isset($_SESSION['user'])) {
     refreshSessionUser($pdo);
 }
@@ -14,23 +15,25 @@ $isAdminForm = isset($_SESSION['user']) && isAdmin();
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $name = trim($_POST['name']);
-    $email = trim($_POST['email']);
+    $phone = normalizePhoneNumber($_POST['phone'] ?? '');
     $role = $isAdminForm ? normalizeUserRole($_POST['role'] ?? 'pelanggan') : 'pelanggan';
     
     // Basic validation
-    if (empty($name) || empty($email)) {
+    if (empty($name) || empty($phone)) {
         $error = "Semua field harus diisi";
+    } elseif (!isValidPhoneNumber($phone)) {
+        $error = "Nomor HP harus diawali 62 dan terdiri dari 10-15 digit";
     } else {
-        // Check if email already exists
-        $checkStmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-        $checkStmt->execute([$email]);
+        // Check if phone number already exists
+        $checkStmt = $pdo->prepare("SELECT id FROM users WHERE phone = ?");
+        $checkStmt->execute([$phone]);
         
         if ($checkStmt->fetch()) {
-            $error = "Email sudah terdaftar";
+            $error = "Nomor HP sudah terdaftar";
         } else {
             try {
-                $stmt = $pdo->prepare("INSERT INTO users (name, email, role) VALUES (?, ?, ?)");
-                $stmt->execute([$name, $email, $role]);
+                $stmt = $pdo->prepare("INSERT INTO users (name, phone, role) VALUES (?, ?, ?)");
+                $stmt->execute([$name, $phone, $role]);
                 $success = true;
             } catch (PDOException $e) {
                 $error = "Terjadi kesalahan saat menyimpan data";
@@ -556,12 +559,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
          </div>
 
          <div class="form-group">
-            <label class="form-label" for="email">Email Address</label>
+            <label class="form-label" for="phone">Nomor HP</label>
             <div class="input-group">
-               <input type="email" name="email" id="email" class="form-input" placeholder="Masukkan alamat email"
-                  value="<?= isset($_POST['email']) ? htmlspecialchars($_POST['email']) : '' ?>" required
-                  autocomplete="email">
-               <span class="input-icon">📧</span>
+               <input type="tel" name="phone" id="phone" class="form-input" placeholder="Contoh: 6288289722215"
+                  value="<?= isset($_POST['phone']) ? htmlspecialchars($_POST['phone']) : '' ?>" required
+                  inputmode="numeric" pattern="62[0-9]{8,13}" maxlength="15" autocomplete="tel">
+               <span class="input-icon">📱</span>
             </div>
          </div>
 
@@ -619,14 +622,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       }, index * 200);
    });
 
-   // Real-time email validation
-   const emailInput = document.getElementById('email');
-   if (emailInput) {
-      emailInput.addEventListener('input', function() {
-         const email = this.value;
-         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+   // Real-time phone number validation
+   const phoneInput = document.getElementById('phone');
+   if (phoneInput) {
+      phoneInput.addEventListener('input', function() {
+         this.value = this.value.replace(/\D/g, '').slice(0, 15);
+         const phoneRegex = /^62[0-9]{8,13}$/;
 
-         if (email && !emailRegex.test(email)) {
+         if (this.value && !phoneRegex.test(this.value)) {
             this.style.borderColor = '#ff6b6b';
          } else {
             this.style.borderColor = '#e1e5e9';

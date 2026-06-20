@@ -8,7 +8,7 @@ include 'db.php';
 \Midtrans\Config::$is3ds = true;
 
 $id = $_GET['id'];
-$stmt = $pdo->prepare("SELECT b.*, u.name, u.email FROM billings b JOIN users u ON b.user_id = u.id WHERE b.id = ?");
+$stmt = $pdo->prepare("SELECT b.*, u.name, u.email, u.phone FROM billings b JOIN users u ON b.user_id = u.id WHERE b.id = ?");
 $stmt->execute([$id]);
 $bill = $stmt->fetch();
 
@@ -21,10 +21,11 @@ $params = [
         'order_id' => $bill['billing_code'],
         'gross_amount' => (int)$bill['amount']
     ],
-    'customer_details' => [
+    'customer_details' => array_filter([
         'first_name' => $bill['name'],
         'email' => $bill['email'],
-    ],
+        'phone' => $bill['phone'],
+    ]),
     'enabled_payments' => [
         'gopay', 'qris', 'bank_transfer', 'shopeepay', 'permata_va', 'bca_va', 'bni_va'
     ],
@@ -387,9 +388,9 @@ try {
          <div class="bill-row">
             <span class="bill-label">
                <i class="fas fa-envelope"></i>
-               Email
+               Nomor HP
             </span>
-            <span class="bill-value"><?= htmlspecialchars($bill['email']) ?></span>
+            <span class="bill-value"><?= htmlspecialchars($bill['phone'] ?? '-') ?></span>
          </div>
          <div class="bill-row">
             <span class="bill-label">
