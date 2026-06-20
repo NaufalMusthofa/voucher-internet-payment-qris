@@ -6,7 +6,12 @@ if (!isset($_SESSION['user'])) {
 }
 
 include 'db.php';
+require_once 'auth_helpers.php';
 require_once 'stock_helpers.php';
+
+ensureUserRoleSchema($pdo);
+refreshSessionUser($pdo);
+requireAdmin();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['billing_id'])) {
     $billing_id = $_POST['billing_id'];

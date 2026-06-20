@@ -1,6 +1,12 @@
 <?php
 session_start();
 include 'db.php';
+require_once 'auth_helpers.php';
+
+ensureUserRoleSchema($pdo);
+refreshSessionUser($pdo);
+requireAdmin();
+
 include 'views/header.php';
 
 $stmt = $pdo->query("SELECT * FROM users");
@@ -163,6 +169,26 @@ body {
    font-style: italic;
 }
 
+.role-badge {
+   display: inline-block;
+   padding: 7px 12px;
+   border-radius: 999px;
+   font-size: 12px;
+   font-weight: 800;
+   text-transform: uppercase;
+   letter-spacing: 0.4px;
+}
+
+.role-admin {
+   background: #e8f0ff;
+   color: #1d4ed8;
+}
+
+.role-pelanggan {
+   background: #e7f7ee;
+   color: #137333;
+}
+
 .stats {
    display: flex;
    justify-content: space-between;
@@ -282,12 +308,12 @@ body {
          <div class="stat-label">Total Users</div>
       </div>
       <div class="stat-card">
-         <div class="stat-number"><?= count(array_filter($users, function($u) { return !empty($u['email']); })) ?></div>
-         <div class="stat-label">Active Emails</div>
+         <div class="stat-number"><?= count(array_filter($users, function($u) { return ($u['role'] ?? 'pelanggan') === 'admin'; })) ?></div>
+         <div class="stat-label">Admin</div>
       </div>
       <div class="stat-card">
-         <div class="stat-number"><?= date('Y') ?></div>
-         <div class="stat-label">Current Year</div>
+         <div class="stat-number"><?= count(array_filter($users, function($u) { return ($u['role'] ?? 'pelanggan') === 'pelanggan'; })) ?></div>
+         <div class="stat-label">Pelanggan</div>
       </div>
    </div>
 
@@ -299,6 +325,7 @@ body {
                <th>🆔 ID</th>
                <th>👤 Nama</th>
                <th>📧 Email</th>
+               <th>Role</th>
             </tr>
          </thead>
          <tbody>
@@ -312,6 +339,10 @@ body {
                </td>
                <td>
                   <span class="user-email"><?= htmlspecialchars($u['email']) ?></span>
+               </td>
+               <td>
+                  <?php $role = $u['role'] ?? 'pelanggan'; ?>
+                  <span class="role-badge role-<?= htmlspecialchars($role) ?>"><?= htmlspecialchars($role) ?></span>
                </td>
             </tr>
             <?php endforeach; ?>

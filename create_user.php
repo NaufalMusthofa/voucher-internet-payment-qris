@@ -1,12 +1,21 @@
 <?php
+session_start();
 include 'db.php';
+require_once 'auth_helpers.php';
+
+ensureUserRoleSchema($pdo);
+if (isset($_SESSION['user'])) {
+    refreshSessionUser($pdo);
+}
 
 $success = false;
 $error = '';
+$isAdminForm = isset($_SESSION['user']) && isAdmin();
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $name = trim($_POST['name']);
     $email = trim($_POST['email']);
+    $role = $isAdminForm ? normalizeUserRole($_POST['role'] ?? 'pelanggan') : 'pelanggan';
     
     // Basic validation
     if (empty($name) || empty($email)) {
@@ -20,8 +29,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $error = "Email sudah terdaftar";
         } else {
             try {
-                $stmt = $pdo->prepare("INSERT INTO users (name, email) VALUES (?, ?)");
-                $stmt->execute([$name, $email]);
+                $stmt = $pdo->prepare("INSERT INTO users (name, email, role) VALUES (?, ?, ?)");
+                $stmt->execute([$name, $email, $role]);
                 $success = true;
             } catch (PDOException $e) {
                 $error = "Terjadi kesalahan saat menyimpan data";
@@ -436,7 +445,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       </div>
 
       <div class="login-link">
-         <a href="login.php">
+         <a href="<?= $isAdminForm ? 'user_management.php' : 'login.php' ?>">
             🔙 Kembali ke Halaman Login
          </a>
       </div>
@@ -449,7 +458,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
          <a href="login.php" class="btn-secondary">
             🚀 Login Sekarang
          </a>
-         <a href="user_management.php" class="btn-secondary">
+         <a href="<?= $isAdminForm ? 'user_management.php' : 'login.php' ?>" class="btn-secondary">
             👥 Kelola User
          </a>
       </div>
@@ -480,6 +489,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                <span class="input-icon">📧</span>
             </div>
          </div>
+
+         <?php if ($isAdminForm): ?>
+         <div class="form-group">
+            <label class="form-label" for="role">Role</label>
+            <div class="input-group">
+               <?php $selectedRole = normalizeUserRole($_POST['role'] ?? 'pelanggan'); ?>
+               <select name="role" id="role" class="form-input" required>
+                  <option value="pelanggan" <?= $selectedRole === 'pelanggan' ? 'selected' : '' ?>>Pelanggan</option>
+                  <option value="admin" <?= $selectedRole === 'admin' ? 'selected' : '' ?>>Admin</option>
+               </select>
+               <span class="input-icon">RL</span>
+            </div>
+         </div>
+         <?php endif; ?>
 
          <button type="submit" class="submit-btn" id="submitBtn">
             ✨ Buat Akun

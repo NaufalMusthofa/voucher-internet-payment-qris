@@ -1,6 +1,9 @@
 <?php
 session_start();
 include 'db.php';
+require_once 'auth_helpers.php';
+
+ensureUserRoleSchema($pdo);
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $email = $_POST['email'];

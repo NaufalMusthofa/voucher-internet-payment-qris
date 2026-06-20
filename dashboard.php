@@ -5,8 +5,12 @@ include 'db.php';
 require_once 'config/midtrans.php';
 require_once 'sync_midtrans_status.php';
 require_once 'stock_helpers.php';
+require_once 'auth_helpers.php';
 
+ensureUserRoleSchema($pdo);
+refreshSessionUser($pdo);
 $user_id = $_SESSION['user']['id'];
+$isAdmin = isAdmin();
 $snapJsUrl = \Midtrans\Config::$isProduction
     ? 'https://app.midtrans.com/snap/snap.js'
     : 'https://app.sandbox.midtrans.com/snap/snap.js';
@@ -904,6 +908,7 @@ $pakets = getVoucherPackagesWithStock($pdo);
                <span class="nav-icon">➕</span>
                Buat Tagihan
             </a> -->
+            <?php if ($isAdmin): ?>
             <a href="user_management.php" class="nav-item">
                <span class="nav-icon">👥</span>
                Kelola User
@@ -912,6 +917,7 @@ $pakets = getVoucherPackagesWithStock($pdo);
                <span class="nav-icon">ST</span>
                Stok Voucher
             </a>
+            <?php endif; ?>
             <a href="riwayat.php" class="nav-item">
                <span class="nav-icon">📊</span>
                Riwayat
@@ -1005,6 +1011,7 @@ $pakets = getVoucherPackagesWithStock($pdo);
                               class="btn btn-warning">
                               ⏹️ Batalkan
                            </button>
+                           <?php if ($isAdmin): ?>
                            <form action="delete_billing.php" method="POST" style="display:inline;"
                               onsubmit="return confirm('Yakin ingin menghapus billing ini?');">
                               <input type="hidden" name="billing_id" value="<?= $b['id'] ?>">
@@ -1012,6 +1019,7 @@ $pakets = getVoucherPackagesWithStock($pdo);
                                  🗑️ Hapus
                               </button>
                            </form>
+                           <?php endif; ?>
                            <?php endif; ?>
 
                            <?php elseif ($b['status'] == 'paid'): ?>
