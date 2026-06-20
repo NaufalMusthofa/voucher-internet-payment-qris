@@ -62,7 +62,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       justify-content: center;
       padding: 20px;
       position: relative;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
    }
 
    /* Animated background elements */
@@ -102,6 +103,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       padding: 50px 40px;
       width: 100%;
       max-width: 500px;
+      margin: auto;
       position: relative;
       z-index: 1;
       animation: slideUp 0.8s ease-out;
@@ -240,6 +242,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       position: relative;
       overflow: hidden;
       margin-bottom: 20px;
+      min-height: 58px;
+      flex-shrink: 0;
    }
 
    .submit-btn::before {
@@ -381,23 +385,94 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
    }
 
    @media (max-width: 480px) {
+      body {
+         padding: 12px;
+         align-items: flex-start;
+      }
+
       .container {
-         padding: 40px 30px;
-         margin: 10px;
+         padding: 28px 20px;
+         margin: auto;
+         border-radius: 16px;
+      }
+
+      .header {
+         margin-bottom: 24px;
       }
 
       .header h1 {
-         font-size: 28px;
+         font-size: 26px;
       }
 
       .header-icon {
-         width: 70px;
-         height: 70px;
-         font-size: 32px;
+         width: 60px;
+         height: 60px;
+         margin-bottom: 14px;
+         font-size: 28px;
+      }
+
+      .login-link {
+         padding: 15px;
+      }
+
+      .form-group {
+         margin-bottom: 18px;
+      }
+
+      .form-input {
+         padding: 15px 18px 15px 48px;
+      }
+
+      .input-icon {
+         left: 17px;
+      }
+
+      .submit-btn {
+         padding: 15px;
+         min-height: 54px;
+         font-size: 16px;
       }
 
       .action-buttons {
          flex-direction: column;
+      }
+   }
+
+   @media (max-height: 760px) {
+      body {
+         align-items: flex-start;
+         padding-top: 12px;
+         padding-bottom: 12px;
+      }
+
+      .container {
+         padding-top: 28px;
+         padding-bottom: 28px;
+      }
+
+      .header {
+         margin-bottom: 22px;
+      }
+
+      .header-icon {
+         width: 58px;
+         height: 58px;
+         margin-bottom: 12px;
+         font-size: 27px;
+      }
+
+      .header h1 {
+         font-size: 26px;
+      }
+
+      .login-link,
+      .form-group {
+         margin-bottom: 16px;
+      }
+
+      .form-input {
+         padding-top: 14px;
+         padding-bottom: 14px;
       }
    }
 
