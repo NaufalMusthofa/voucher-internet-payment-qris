@@ -1,7 +1,4 @@
 <?php
-include 'db.php';
-require_once 'config/midtrans.php';
-require_once 'sync_midtrans_status.php';
 session_start();
 
 if (!isset($_SESSION['user'])) {
@@ -9,9 +6,17 @@ if (!isset($_SESSION['user'])) {
     exit;
 }
 
+include 'db.php';
+require_once 'config/midtrans.php';
+require_once 'sync_midtrans_status.php';
+
 $user_id = $_SESSION['user']['id'];
 
-syncMidtransWaitingBillings($pdo, $user_id);
+try {
+    syncMidtransWaitingBillings($pdo, $user_id);
+} catch (Exception $e) {
+    file_put_contents(__DIR__ . '/riwayat.log', date('c') . " Sync error: " . $e->getMessage() . PHP_EOL, FILE_APPEND);
+}
 
 $stmt = $pdo->prepare("SELECT * FROM billings WHERE user_id = ? AND status IN ('paid','expired','cancel','waiting') ORDER BY created_at DESC");
 $stmt->execute([$user_id]);
