@@ -1,9 +1,12 @@
 <?php
+session_start();
 include 'db.php';
-require_once 'auth_bypass.php';
 header('Content-Type: application/json');
 
-ensureDashboardSession($pdo);
+if (!isset($_SESSION['user'])) {
+    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    exit;
+}
 
 $user_id = $_SESSION['user']['id'];
 $input = json_decode(file_get_contents('php://input'), true);

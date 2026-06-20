@@ -1,10 +1,9 @@
 <?php
+session_start();
+if (!isset($_SESSION['user'])) header("Location: login.php");
 include 'db.php';
-require_once 'auth_bypass.php';
 require_once 'config/midtrans.php';
 require_once 'sync_midtrans_status.php';
-
-ensureDashboardSession($pdo);
 
 $user_id = $_SESSION['user']['id'];
 $snapJsUrl = \Midtrans\Config::$isProduction
@@ -777,7 +776,7 @@ $pakets = [
 </head>
 
 <body>
-   <a href="logout.php" class="logout-btn" style="display:none;">
+   <a href="logout.php" class="logout-btn">
       🚪 Logout
    </a>
 

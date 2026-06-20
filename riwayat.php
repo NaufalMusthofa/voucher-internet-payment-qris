@@ -1,10 +1,13 @@
 <?php
 include 'db.php';
-require_once 'auth_bypass.php';
 require_once 'config/midtrans.php';
 require_once 'sync_midtrans_status.php';
+session_start();
 
-ensureDashboardSession($pdo);
+if (!isset($_SESSION['user'])) {
+    header("Location: login.php");
+    exit;
+}
 
 $user_id = $_SESSION['user']['id'];
 

@@ -1,11 +1,14 @@
 <?php
+session_start();
 require_once 'vendor/autoload.php';
 include 'db.php';
-require_once 'auth_bypass.php';
 include 'config/midtrans.php';
 header('Content-Type: application/json');
 
-ensureDashboardSession($pdo);
+if (!isset($_SESSION['user'])) {
+    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    exit;
+}
 
 $user_id = $_SESSION['user']['id'];
 $name = $_SESSION['user']['name'];
