@@ -7,7 +7,7 @@ if (!isset($_SESSION['user'])) {
 
 include 'db.php';
 require_once 'auth_helpers.php';
-require_once 'stock_helpers.php';
+require_once 'voucher_inventory_helpers.php';
 
 ensureUserRoleSchema($pdo);
 refreshSessionUser($pdo);

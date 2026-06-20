@@ -456,6 +456,7 @@ $data = $stmt->fetchAll();
                      <th>Jumlah</th>
                      <th>Status</th>
                      <th>Tanggal</th>
+                     <th>Aksi</th>
                   </tr>
                </thead>
                <tbody>
@@ -485,6 +486,11 @@ $data = $stmt->fetchAll();
                      </td>
                      <td data-label="Tanggal" class="date-cell">
                         <?= date('d/m/Y H:i', strtotime($d['created_at'])) ?>
+                     </td>
+                     <td data-label="Aksi">
+                        <?php if ($d['status'] === 'paid' && !empty($d['voucher_code_id'])): ?>
+                        <a href="voucher_code.php?id=<?= (int)$d['id'] ?>" style="display:inline-block;padding:8px 12px;border-radius:8px;background:#2563eb;color:#fff;text-decoration:none;font-weight:700;font-size:.82rem;">Lihat Kode Voucher</a>
+                        <?php else: ?>—<?php endif; ?>
                      </td>
                   </tr>
                   <?php endforeach; ?>

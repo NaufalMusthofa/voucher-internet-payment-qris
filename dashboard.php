@@ -4,7 +4,7 @@ if (!isset($_SESSION['user'])) header("Location: login.php");
 include 'db.php';
 require_once 'config/midtrans.php';
 require_once 'sync_midtrans_status.php';
-require_once 'stock_helpers.php';
+require_once 'voucher_inventory_helpers.php';
 require_once 'auth_helpers.php';
 
 ensureUserRoleSchema($pdo);
@@ -1026,6 +1026,11 @@ $pakets = getVoucherPackagesWithStock($pdo);
                            <a href="invoice.php?id=<?= $b['id'] ?>" class="btn btn-info" target="_blank">
                               🧾 Invoice
                            </a>
+                           <?php if (!empty($b['voucher_code_id'])): ?>
+                           <a href="voucher_code.php?id=<?= $b['id'] ?>" class="btn btn-primary">
+                              🎟️ Lihat Kode Voucher
+                           </a>
+                           <?php endif; ?>
                            <?php elseif ($b['status'] == 'cancel'): ?>
                            <span class="status-badge status-cancel">
                               ❌ Dibatalkan

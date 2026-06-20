@@ -7,7 +7,7 @@ if (!isset($_SESSION['user'])) {
 
 include 'db.php';
 require_once 'auth_helpers.php';
-require_once 'stock_helpers.php';
+require_once 'voucher_inventory_helpers.php';
 
 ensureUserRoleSchema($pdo);
 refreshSessionUser($pdo);
@@ -18,19 +18,31 @@ $success = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $packageKey = $_POST['package_key'] ?? '';
-    $quantity = isset($_POST['quantity']) ? (int)$_POST['quantity'] : 0;
-    $note = trim($_POST['note'] ?? '');
-
     try {
-        restockVoucher($pdo, $packageKey, $quantity, $note ?: 'Restok manual');
-        $success = 'Stok berhasil ditambahkan.';
+        $action = $_POST['action'] ?? 'add';
+        if ($action === 'delete') {
+            deleteAvailableVoucherCode($pdo, (int)($_POST['voucher_id'] ?? 0));
+            $success = 'Kode voucher berhasil dihapus.';
+        } elseif ($action === 'update') {
+            updateAvailableVoucherCode($pdo, (int)($_POST['voucher_id'] ?? 0), $_POST['package_key'] ?? '', $_POST['voucher_code'] ?? '');
+            $success = 'Kode voucher berhasil diperbarui.';
+        } else {
+            $packageKeys = $_POST['package_key'] ?? [];
+            $voucherCodes = $_POST['voucher_code'] ?? [];
+            $rows = [];
+            foreach ($packageKeys as $index => $packageKey) {
+                $rows[] = ['package_key' => $packageKey, 'voucher_code' => $voucherCodes[$index] ?? ''];
+            }
+            $added = addVoucherCodes($pdo, $rows);
+            $success = $added . ' kode voucher berhasil ditambahkan.';
+        }
     } catch (Exception $e) {
         $error = $e->getMessage();
     }
 }
 
 $packages = getVoucherPackagesWithStock($pdo);
+$inventory = getVoucherInventory($pdo);
 $movementStmt = $pdo->query("SELECT sm.*, vs.package_name
     FROM stock_movements sm
     LEFT JOIN voucher_stocks vs ON vs.package_key = sm.package_key
@@ -184,9 +196,28 @@ $movements = $movementStmt->fetchAll(PDO::FETCH_ASSOC);
 
       .restock-form {
          display: grid;
-         grid-template-columns: 100px 1fr auto;
-         gap: 10px;
+         gap: 12px;
       }
+
+      .voucher-row {
+         display: grid;
+         grid-template-columns: minmax(220px, 1fr) minmax(240px, 1.4fr) auto;
+         gap: 10px;
+         align-items: center;
+      }
+
+      select {
+         width: 100%; border: 1px solid #d0d5dd; border-radius: 8px;
+         padding: 10px 12px; font-size: 0.95rem; background: #fff;
+      }
+
+      .form-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+      .btn-danger { background: #fee4e2; color: #b42318; }
+      .status-pill { display:inline-flex; padding:5px 10px; border-radius:999px; font-weight:800; font-size:.76rem; }
+      .status-available { background:#e7f7ee; color:#137333; }
+      .status-reserved { background:#fff4db; color:#8a5a08; }
+      .status-sold { background:#eef2ff; color:#1d4ed8; }
+      .code { font-family: Consolas, monospace; font-weight: 800; }
 
       input {
          width: 100%;
@@ -268,6 +299,8 @@ $movements = $movementStmt->fetchAll(PDO::FETCH_ASSOC);
             grid-template-columns: 1fr;
          }
 
+         .voucher-row { grid-template-columns: 1fr; padding-bottom: 14px; border-bottom: 1px solid #eef1f5; }
+
          .section {
             overflow-x: auto;
          }
@@ -280,7 +313,7 @@ $movements = $movementStmt->fetchAll(PDO::FETCH_ASSOC);
       <div class="header">
          <div>
             <h1>Master Stok Voucher</h1>
-            <p>Kelola stok paket voucher dan lakukan restok saat persediaan menipis.</p>
+            <p>Tambahkan kode voucher asli. Satu kode yang tersedia dihitung sebagai satu stok.</p>
          </div>
          <a href="dashboard.php" class="btn btn-secondary">Kembali ke Dashboard</a>
       </div>
@@ -302,19 +335,80 @@ $movements = $movementStmt->fetchAll(PDO::FETCH_ASSOC);
                   <div class="stock-price">Rp <?= number_format($package['harga'], 0, ',', '.') ?></div>
                </div>
                <div class="stock-count <?= $package['stock'] <= 0 ? 'empty' : '' ?>">
-                  <?= (int)$package['stock'] ?>
-                  <span>Stok</span>
+                  <?= (int)$package['stock'] ?><span>Tersedia</span>
                </div>
             </div>
-
-            <form method="POST" class="restock-form">
-               <input type="hidden" name="package_key" value="<?= htmlspecialchars($package['key']) ?>">
-               <input type="number" name="quantity" min="1" placeholder="Jumlah" required>
-               <input type="text" name="note" maxlength="255" placeholder="Catatan">
-               <button type="submit" class="btn btn-primary">Restok</button>
-            </form>
          </div>
          <?php endforeach; ?>
+      </div>
+
+      <div class="section" style="padding:20px; margin-bottom:24px; overflow:visible;">
+         <div class="section-title" style="padding:0 0 16px; margin-bottom:16px;">Tambah Kode Voucher</div>
+         <form method="POST" class="restock-form" id="voucherForm">
+            <input type="hidden" name="action" value="add">
+            <div id="voucherRows">
+               <div class="voucher-row">
+                  <select name="package_key[]" required>
+                     <option value="">Pilih paket voucher</option>
+                     <?php foreach ($packages as $package): ?>
+                     <option value="<?= htmlspecialchars($package['key']) ?>"><?= htmlspecialchars($package['nama']) ?></option>
+                     <?php endforeach; ?>
+                  </select>
+                  <input type="text" name="voucher_code[]" maxlength="100" placeholder="Masukkan kode voucher dari admin" required>
+                  <button type="button" class="btn btn-danger remove-row">Hapus Baris</button>
+               </div>
+            </div>
+            <div class="form-actions">
+               <button type="button" class="btn btn-secondary" id="addRow">+ Tambah Baris</button>
+               <button type="submit" class="btn btn-primary">Simpan Voucher</button>
+            </div>
+         </form>
+      </div>
+
+      <div class="section" style="margin-bottom:24px;">
+         <div class="section-title">Data Voucher</div>
+         <?php if ($inventory): ?>
+         <table>
+            <thead><tr><th>Nama</th><th>No. HP</th><th>Paket Voucher</th><th>Kode Voucher</th><th>Status</th><th>Aksi</th></tr></thead>
+            <tbody>
+               <?php foreach ($inventory as $voucher): ?>
+               <tr>
+                  <td><?= htmlspecialchars($voucher['customer_name'] ?: '-') ?></td>
+                  <td><?= htmlspecialchars($voucher['customer_phone'] ?: '-') ?></td>
+                  <td>
+                     <?php if ($voucher['status'] === 'available'): ?>
+                     <select name="package_key" form="edit-voucher-<?= (int)$voucher['id'] ?>">
+                        <?php foreach ($packages as $package): ?>
+                        <option value="<?= htmlspecialchars($package['key']) ?>" <?= $package['key'] === $voucher['package_key'] ? 'selected' : '' ?>><?= htmlspecialchars($package['nama']) ?></option>
+                        <?php endforeach; ?>
+                     </select>
+                     <?php else: ?><?= htmlspecialchars($voucher['package_name']) ?><?php endif; ?>
+                  </td>
+                  <td>
+                     <?php if ($voucher['status'] === 'available'): ?>
+                     <input class="code" type="text" name="voucher_code" maxlength="100" value="<?= htmlspecialchars($voucher['voucher_code']) ?>" form="edit-voucher-<?= (int)$voucher['id'] ?>" required>
+                     <?php else: ?><span class="code"><?= htmlspecialchars($voucher['voucher_code']) ?></span><?php endif; ?>
+                  </td>
+                  <td><span class="status-pill status-<?= htmlspecialchars($voucher['status']) ?>"><?= htmlspecialchars($voucher['status']) ?></span></td>
+                  <td>
+                     <?php if ($voucher['status'] === 'available'): ?>
+                     <form method="POST" id="edit-voucher-<?= (int)$voucher['id'] ?>" style="display:inline">
+                        <input type="hidden" name="action" value="update">
+                        <input type="hidden" name="voucher_id" value="<?= (int)$voucher['id'] ?>">
+                        <button type="submit" class="btn btn-primary">Update</button>
+                     </form>
+                     <form method="POST" style="display:inline" onsubmit="return confirm('Hapus kode voucher ini?')">
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="voucher_id" value="<?= (int)$voucher['id'] ?>">
+                        <button type="submit" class="btn btn-danger">Hapus</button>
+                     </form>
+                     <?php else: ?>—<?php endif; ?>
+                  </td>
+               </tr>
+               <?php endforeach; ?>
+            </tbody>
+         </table>
+         <?php else: ?><div class="empty-state">Belum ada kode voucher. Tambahkan kode melalui form di atas.</div><?php endif; ?>
       </div>
 
       <div class="section">
@@ -351,6 +445,28 @@ $movements = $movementStmt->fetchAll(PDO::FETCH_ASSOC);
          <?php endif; ?>
       </div>
    </div>
+   <script>
+   const rowsContainer = document.getElementById('voucherRows');
+   const firstRow = rowsContainer.querySelector('.voucher-row');
+
+   document.getElementById('addRow').addEventListener('click', function() {
+      const row = firstRow.cloneNode(true);
+      row.querySelector('select').value = '';
+      row.querySelector('input').value = '';
+      rowsContainer.appendChild(row);
+   });
+
+   rowsContainer.addEventListener('click', function(event) {
+      if (!event.target.classList.contains('remove-row')) return;
+      const rows = rowsContainer.querySelectorAll('.voucher-row');
+      if (rows.length === 1) {
+         rows[0].querySelector('select').value = '';
+         rows[0].querySelector('input').value = '';
+         return;
+      }
+      event.target.closest('.voucher-row').remove();
+   });
+   </script>
 </body>
 
 </html>

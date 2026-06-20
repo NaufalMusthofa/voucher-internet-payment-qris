@@ -1,5 +1,9 @@
 <?php
 
+// Legacy implementation kept only for compatibility with older includes.
+// Active inventory logic lives in voucher_inventory_helpers.php.
+if (false) {
+
 function getDefaultVoucherPackages()
 {
     return [
@@ -246,3 +250,6 @@ function restockVoucher(PDO $pdo, $packageKey, $quantity, $note = null)
     }
 }
 
+}
+
+require_once __DIR__ . '/voucher_inventory_helpers.php';
