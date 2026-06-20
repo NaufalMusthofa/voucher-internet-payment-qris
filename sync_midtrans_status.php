@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/stock_helpers.php';
 
 function mapMidtransBillingStatus($transactionStatus, $paymentType = null, $fraudStatus = null)
 {
@@ -27,6 +28,8 @@ function mapMidtransBillingStatus($transactionStatus, $paymentType = null, $frau
 
 function syncMidtransWaitingBillings(PDO $pdo, $userId = null)
 {
+    ensureVoucherStockSchema($pdo);
+
     $params = [];
     $sql = "SELECT id, billing_code FROM billings WHERE status = 'waiting'";
 
@@ -69,6 +72,10 @@ function syncMidtransWaitingBillings(PDO $pdo, $userId = null)
             $update = $pdo->prepare("UPDATE billings SET status = ? WHERE id = ? AND status = 'waiting'");
             $update->execute([$newStatus, $billing['id']]);
 
+            if ($newStatus === 'cancel') {
+                releaseVoucherStockForBilling($pdo, $billing['id'], 'Release after Midtrans ' . $transactionStatus);
+            }
+
             file_put_contents(
                 __DIR__ . '/midtrans_status_sync.log',
                 date('c') . " Billing {$billing['billing_code']} Midtrans={$transactionStatus} local={$newStatus}" . PHP_EOL,
@@ -83,4 +90,3 @@ function syncMidtransWaitingBillings(PDO $pdo, $userId = null)
         }
     }
 }
-

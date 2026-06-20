@@ -2,6 +2,7 @@
 session_start();
 require_once 'db.php';
 require_once 'vendor/autoload.php';
+require_once 'stock_helpers.php';
 
 \Midtrans\Config::$isProduction = false;
 \Midtrans\Config::$serverKey = 'SB-Mid-server-PSWB9o2r972l7ryrMYv0EjZ0';
@@ -13,6 +14,7 @@ if (!isset($_SESSION['user'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['billing_id'])) {
     $billing_id = $_POST['billing_id'];
+    ensureVoucherStockSchema($pdo);
     
     // Ambil data billing dari database
     $stmt = $pdo->prepare("SELECT * FROM billings WHERE id = ? AND user_id = ?");
@@ -24,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['billing_id'])) {
             // Update status di database terlebih dahulu
             $updateStmt = $pdo->prepare("UPDATE billings SET status = 'cancel' WHERE id = ?");
             $updateStmt->execute([$billing_id]);
+            releaseVoucherStockForBilling($pdo, $billing_id, 'Release after manual cancel');
             
             // Kirim permintaan cancel ke Midtrans
             $params = array(

@@ -3,6 +3,7 @@ session_start();
 require_once 'vendor/autoload.php';
 include 'db.php';
 include 'config/midtrans.php';
+require_once 'stock_helpers.php';
 header('Content-Type: application/json');
 
 if (!isset($_SESSION['user'])) {
@@ -22,15 +23,37 @@ if (!$input || !isset($input['amount']) || !isset($input['name'])) {
 
 $amount = (int)$input['amount'];
 $packageName = substr($input['name'], 0, 100);
+$packageKey = isset($input['package_key']) ? substr($input['package_key'], 0, 50) : null;
+$package = findVoucherPackage($packageKey, $packageName, $amount);
+
+if (!$package) {
+    echo json_encode(['success' => false, 'message' => 'Paket voucher tidak valid']);
+    exit;
+}
+
+ensureVoucherStockSchema($pdo);
 
 // Create a unique billing code
 $billing_code = 'BILL-' . time() . '-' . rand(1000,9999);
 
 try {
-    $stmt = $pdo->prepare("INSERT INTO billings (user_id, billing_code, amount, status, created_at) VALUES (?, ?, ?, 'waiting', NOW())");
-    $stmt->execute([$user_id, $billing_code, $amount]);
+    $pdo->beginTransaction();
+
+    $stmt = $pdo->prepare("INSERT INTO billings (user_id, billing_code, amount, package_key, package_name, status, created_at) VALUES (?, ?, ?, ?, ?, 'waiting', NOW())");
+    $stmt->execute([$user_id, $billing_code, $amount, $package['key'], $package['nama']]);
     $billing_id = $pdo->lastInsertId();
+
+    reserveVoucherStock($pdo, $package['key'], $billing_id, 'Reserved for pending payment ' . $billing_code);
+
+    $markReserved = $pdo->prepare("UPDATE billings SET stock_reserved = 1 WHERE id = ?");
+    $markReserved->execute([$billing_id]);
+
+    $pdo->commit();
 } catch (Exception $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
     echo json_encode(['success' => false, 'message' => 'DB error: '.$e->getMessage()]);
     exit;
 }
@@ -91,6 +114,13 @@ try {
 } catch (Exception $e) {
     // Log last error for debugging
     file_put_contents(__DIR__ . '/create_qris_order.log', date('c') . " Final error: " . $e->getMessage() . PHP_EOL, FILE_APPEND);
+    try {
+        releaseVoucherStockForBilling($pdo, $billing_id, 'Release because Midtrans token failed');
+        $cancel = $pdo->prepare("UPDATE billings SET status = 'cancel' WHERE id = ?");
+        $cancel->execute([$billing_id]);
+    } catch (Exception $releaseError) {
+        file_put_contents(__DIR__ . '/create_qris_order.log', date('c') . " Failed to release stock: " . $releaseError->getMessage() . PHP_EOL, FILE_APPEND);
+    }
     echo json_encode(['success' => false, 'message' => 'Midtrans error: '.$e->getMessage()]);
     exit;
 }

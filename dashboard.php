@@ -4,6 +4,7 @@ if (!isset($_SESSION['user'])) header("Location: login.php");
 include 'db.php';
 require_once 'config/midtrans.php';
 require_once 'sync_midtrans_status.php';
+require_once 'stock_helpers.php';
 
 $user_id = $_SESSION['user']['id'];
 $snapJsUrl = \Midtrans\Config::$isProduction
@@ -15,6 +16,7 @@ $expiryCutoff = date('Y-m-d H:i:s', time() - 300);
 $expiredStatus = 'cancel';
 
 syncMidtransWaitingBillings($pdo, $user_id);
+ensureVoucherStockSchema($pdo);
 
 // Auto-void stale QRIS orders before rendering dashboard and statistics.
 try {
@@ -42,6 +44,12 @@ try {
     }
 }
 
+try {
+    releaseExpiredVoucherReservations($pdo, $user_id);
+} catch (Exception $e) {
+    file_put_contents(__DIR__ . '/stock_release.log', date('c') . " Dashboard release error: " . $e->getMessage() . PHP_EOL, FILE_APPEND);
+}
+
 
 $stmt = $pdo->prepare("SELECT * FROM billings WHERE user_id = ? ORDER BY created_at DESC");
 $stmt->execute([$user_id]);
@@ -61,37 +69,8 @@ $statsStmt = $pdo->prepare("
 $statsStmt->execute([$user_id]);
 $stats = $statsStmt->fetch();
 
-// Paket data
-$pakets = [
-    [
-        'nama' => 'Paket Pelajar',
-        'harga' => 3000,
-        'durasi' => '3 Jam',
-        'perangkat' => '1 HP / Laptop',
-        'kecepatan' => 'Up to 5 Mbps',
-        'kuota' => 'Unlimited',
-        'popular' => false
-    ],
-    [
-        'nama' => 'Paket Gaming Mania',
-        'harga' => 10000,
-        'durasi' => '24 Jam (1 Hari)',
-        'perangkat' => '1 HP / Laptop',
-        'kecepatan' => 'Up to 15 Mbps',
-        'kuota' => 'Unlimited',
-        'popular' => true,
-        'badge' => 'Paling Laris'
-    ],
-    [
-        'nama' => 'Paket Keluarga',
-        'harga' => 50000,
-        'durasi' => '7 Hari (1 Minggu)',
-        'perangkat' => 'Maks. 3 Perangkat',
-        'kecepatan' => 'Up to 20 Mbps',
-        'kuota' => 'FUP 50 GB',
-        'popular' => false
-    ]
-];
+// Paket data + stok voucher
+$pakets = getVoucherPackagesWithStock($pdo);
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -234,6 +213,24 @@ $pakets = [
          font-weight: normal;
       }
 
+      .stock-badge {
+         display: inline-flex;
+         align-items: center;
+         justify-content: center;
+         margin-top: 10px;
+         padding: 6px 12px;
+         border-radius: 999px;
+         background: #e9f7ef;
+         color: #1e7e34;
+         font-size: 0.82rem;
+         font-weight: 700;
+      }
+
+      .stock-badge.empty {
+         background: #fdecea;
+         color: #b02a37;
+      }
+
       /* --- DETAIL FITUR --- */
       .paket-details {
          list-style: none;
@@ -284,12 +281,22 @@ $pakets = [
          transform: translateY(-2px);
       }
 
+      .btn-beli:disabled {
+         background-color: #adb5bd;
+         cursor: not-allowed;
+         transform: none;
+      }
+
       .card.popular .btn-beli {
          background-color: #28a745;
       }
 
       .card.popular .btn-beli:hover {
          background-color: #218838;
+      }
+
+      .card.popular .btn-beli:disabled {
+         background-color: #adb5bd;
       }
 
       /* --- STATS SECTION --- */
@@ -831,6 +838,9 @@ $pakets = [
                <div class="card-header">
                   <div class="paket-nama"><?= $paket['nama'] ?></div>
                   <div class="paket-harga">Rp <?= number_format($paket['harga'], 0, ',', '.') ?> <span>/ paket</span></div>
+                  <div class="stock-badge <?= $paket['stock'] <= 0 ? 'empty' : '' ?>">
+                     Stok: <?= (int)$paket['stock'] ?>
+                  </div>
                </div>
                
                <ul class="paket-details">
@@ -852,7 +862,13 @@ $pakets = [
                   </li>
                </ul>
                
-               <button type="button" class="btn-beli" onclick='buyPackage(<?= $paket['harga'] ?>, <?= json_encode($paket['nama']) ?>)'>Beli Voucher</button>
+               <button
+                  type="button"
+                  class="btn-beli"
+                  <?= $paket['stock'] <= 0 ? 'disabled' : '' ?>
+                  onclick='buyPackage(<?= $paket['harga'] ?>, <?= json_encode($paket['nama']) ?>, <?= json_encode($paket['key']) ?>)'>
+                  <?= $paket['stock'] <= 0 ? 'Stok Habis' : 'Beli Voucher' ?>
+               </button>
             </div>
             <?php endforeach; ?>
          </div>
@@ -891,6 +907,10 @@ $pakets = [
             <a href="user_management.php" class="nav-item">
                <span class="nav-icon">👥</span>
                Kelola User
+            </a>
+            <a href="stock_management.php" class="nav-item">
+               <span class="nav-icon">ST</span>
+               Stok Voucher
             </a>
             <a href="riwayat.php" class="nav-item">
                <span class="nav-icon">📊</span>
@@ -1113,13 +1133,13 @@ $pakets = [
          });
       }
 
-      function buyPackage(amount, name) {
+      function buyPackage(amount, name, packageKey) {
          if (!confirm('Beli "' + name + '" seharga Rp ' + new Intl.NumberFormat('id-ID').format(amount) + '?')) return;
          fetch('create_qris_order.php', {
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: amount, name: name })
+            body: JSON.stringify({ amount: amount, name: name, package_key: packageKey })
          }).then(r => r.json()).then(data => {
             if (!data.success) {
                alert('Gagal membuat order: ' + (data.message || 'unknown'));
